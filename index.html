@@ -455,12 +455,10 @@ async function pcloudLogin(email, password, apiBase, tfaCode) {
   const body = new URLSearchParams(params);
   const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body });
   const data = await res.json();
-  if (data.result === 2000) {
-    const err = new Error('TFA_REQUIRED');
-    err.tfaToken = data.token;
-    throw err;
+  if (data.result !== 0 && (data.error || '').toLowerCase().includes('provide code')) {
+    throw new Error('TFA_REQUIRED');
   }
-  if (data.result !== 0) throw new Error(data.error || 'Login failed');
+  if (data.result !== 0) throw new Error(`[${data.result}] ${data.error || 'Login failed'} ${JSON.stringify(data)}`);
   return data.auth;
 }
 
