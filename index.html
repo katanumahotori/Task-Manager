@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111118">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%235865f2'/><path d='M28 52l14 14 30-32' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
+<title>Tasks</title>
+<style>
+  :root {
+    --accent:#5865f2;--accent-hover:#4752c4;--accent-sub:#3ba55c;--accent-sub-h:#2d8a4b;
+    --bg:#111118;--bg-raised:#22223a;--bg-input:#2a2a40;--bg-hover:#2c2c48;
+    --border:#3a3a56;--border-focus:#5865f2;
+    --text-primary:#f0f0f8;--text-secondary:#a0a0c0;--text-muted:#8888a0;
+    --project-bar:#3a3a58;
+    --p-high:#f04747;--p-med:#faa61a;--p-low:#43b581;
+    --badge-high-bg:rgba(240,71,71,.18);--badge-high-fg:#f47c7c;
+    --badge-med-bg:rgba(250,166,26,.15);--badge-med-fg:#fbbf24;
+    --badge-low-bg:rgba(67,181,129,.15);--badge-low-fg:#6ee7b7;
+    --badge-over-bg:rgba(240,71,71,.25);--badge-over-fg:#f87171;
+    --badge-today-bg:rgba(251,191,36,.2);--badge-today-fg:#fde68a;
+    --bg-overdue:rgba(240,71,71,.08);--bg-today:rgba(250,166,26,.07);
+    --modal-bg:#1c1c2a;--modal-overlay:rgba(0,0,0,.65);
+    --drag-handle:#5a5a80;--drag-line:#5865f2;
+  }
+  @media (prefers-color-scheme:light){
+    :root{
+      --bg:#f0f2f8;--bg-raised:#fff;--bg-input:#f5f6fc;--bg-hover:#eaeaf6;
+      --border:#d0d2e8;--text-primary:#1a1a2e;--text-secondary:#4a4a6a;--text-muted:#7070a0;
+      --project-bar:#c8cbea;
+      --badge-high-bg:rgba(220,38,38,.1);--badge-high-fg:#dc2626;
+      --badge-med-bg:rgba(217,119,6,.1);--badge-med-fg:#b45309;
+      --badge-low-bg:rgba(22,163,74,.1);--badge-low-fg:#16a34a;
+      --badge-over-bg:rgba(220,38,38,.12);--badge-over-fg:#b91c1c;
+      --badge-today-bg:rgba(180,83,9,.1);--badge-today-fg:#92400e;
+      --bg-overdue:rgba(220,38,38,.06);--bg-today:rgba(217,119,6,.06);
+      --modal-bg:#fff;--modal-overlay:rgba(0,0,0,.4);
+      --drag-handle:#b0b2cc;--accent-sub:#16a34a;--accent-sub-h:#15803d;
+    }
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text-primary);min-height:100vh;min-height:100dvh}
+
+  /* ── Login ── */
+  #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:20px}
+  .login-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.25)}
+  .login-card h1{font-size:1.3rem;margin-bottom:4px;color:var(--text-primary)}
+  .login-card .login-sub{font-size:0.8rem;color:var(--text-muted);margin-bottom:20px}
+  .login-card label{display:block;font-size:0.78rem;font-weight:600;color:var(--text-secondary);margin:12px 0 4px}
+  .login-card input,.login-card select{
+    width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);
+    border-radius:7px;color:var(--text-primary);font-size:0.9rem;outline:none;transition:border-color .15s;
+  }
+  .login-card input:focus,.login-card select:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(88,101,242,.15)}
+  .login-card .login-btn{
+    width:100%;margin-top:20px;padding:12px;background:var(--accent);border:none;border-radius:8px;
+    color:#fff;font-size:0.95rem;font-weight:600;cursor:pointer;transition:background .15s;
+  }
+  .login-card .login-btn:hover{background:var(--accent-hover)}
+  .login-card .login-btn:disabled{opacity:.5;cursor:not-allowed}
+  .login-error{margin-top:12px;padding:8px 12px;background:var(--badge-over-bg);color:var(--badge-over-fg);border-radius:6px;font-size:0.8rem;display:none}
+  .login-hint{font-size:0.7rem;color:var(--text-muted);margin-top:4px}
+
+  /* ── App container ── */
+  .container{max-width:820px;margin:0 auto;padding:16px 12px 80px}
+
+  /* ── Sticky top ── */
+  .sticky-top{position:sticky;top:0;z-index:50;background:var(--bg);padding-top:8px;margin-top:-8px}
+
+  /* ── Add form ── */
+  .add-form{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--bg-raised);border-radius:10px;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.15);margin-bottom:8px}
+  .add-row1{display:flex;gap:8px}
+  .add-row1 input{flex:1;min-width:0}
+  .add-row2{display:flex;gap:6px;flex-wrap:wrap}
+  .add-row2>input{flex:1 1 0;min-width:80px}
+  .add-form input,.add-form select{
+    padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);
+    border-radius:7px;color:var(--text-primary);font-size:0.9rem;outline:none;transition:border-color .15s;
+  }
+  .add-form input:focus,.add-form select:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(88,101,242,.15)}
+  .add-form input::placeholder{color:var(--text-muted)}
+  .add-form .submit-btn{
+    padding:10px 16px;background:var(--accent);border:none;border-radius:7px;
+    color:#fff;font-size:0.9rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;
+  }
+  .add-form select{font-size:0.8rem;padding:8px 6px;flex-shrink:0}
+  .add-form input[type="date"]{font-size:0.8rem;padding:8px 6px;flex-shrink:0}
+
+  /* ── Controls ── */
+  .controls{background:var(--bg);padding-bottom:8px}
+  .list-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .list-tabs{display:flex;gap:4px;align-items:center;flex-wrap:wrap;flex:1;min-width:0}
+  .list-tab{
+    padding:7px 13px;background:var(--bg-raised);border:1px solid var(--border);
+    border-radius:6px;color:var(--text-secondary);font-size:0.8rem;font-weight:500;
+    cursor:pointer;transition:all .15s;white-space:nowrap;
+  }
+  .list-tab:hover{border-color:var(--accent);color:var(--accent)}
+  .list-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .add-list-btn{
+    padding:7px 10px;background:transparent;border:1px dashed var(--border);
+    border-radius:6px;color:var(--text-muted);font-size:0.85rem;cursor:pointer;
+  }
+  .filter-tab{font-weight:600}
+  .filter-tab.active-dl{background:var(--p-med);color:#fff;border-color:var(--p-med)}
+  .controls-right{display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .toggle-btn{
+    padding:7px 12px;background:var(--bg-raised);border:1px solid var(--border);
+    border-radius:7px;color:var(--text-secondary);font-size:0.75rem;cursor:pointer;
+  }
+  .toggle-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .task-count{font-size:0.75rem;color:var(--text-muted);font-weight:500;white-space:nowrap}
+
+  /* ── Project group ── */
+  .project-group{margin-bottom:20px}
+  .project-header{
+    display:flex;align-items:center;gap:6px;
+    font-size:0.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--text-secondary);
+    padding:5px 0;border-bottom:2px solid var(--project-bar);margin-bottom:8px;
+  }
+  .proj-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .proj-due{font-size:0.65rem;color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;white-space:nowrap}
+  .proj-due.proj-overdue{color:var(--badge-over-fg)}
+  .proj-actions{display:flex;gap:3px;flex-shrink:0}
+  .proj-actions button{
+    padding:4px 8px;background:transparent;border:1px solid var(--border);border-radius:4px;
+    color:var(--text-secondary);font-size:0.7rem;font-weight:500;cursor:pointer;
+    text-transform:none;letter-spacing:0;
+  }
+  .proj-actions .proj-del-btn:hover{color:#f87171;border-color:#f87171}
+  .proj-actions .proj-add-btn:hover{color:var(--accent-sub);border-color:var(--accent-sub)}
+  .proj-list-sel{
+    font-size:0.65rem;padding:2px 5px;background:var(--bg-input);border:1px solid var(--border);
+    border-radius:4px;color:var(--text-muted);cursor:pointer;outline:none;max-width:90px;
+    text-transform:none;letter-spacing:0;font-weight:400;
+  }
+
+  /* ── Task card ── */
+  .task{
+    display:flex;align-items:center;gap:8px;
+    padding:8px 12px;background:var(--bg-raised);
+    border-radius:7px;margin-bottom:4px;
+    border:2px solid var(--border);border-left:4px solid transparent;
+    box-shadow:0 1px 4px rgba(0,0,0,.12);
+    min-height:44px;
+  }
+  .task:hover{background:var(--bg-hover)}
+  .task.priority-high{border-left-color:var(--p-high);border-top-color:rgba(240,71,71,.35);border-right-color:rgba(240,71,71,.35);border-bottom-color:rgba(240,71,71,.35)}
+  .task.priority-medium{border-left-color:var(--p-med);border-top-color:rgba(250,166,26,.3);border-right-color:rgba(250,166,26,.3);border-bottom-color:rgba(250,166,26,.3)}
+  .task.priority-low{border-left-color:var(--p-low);border-top-color:rgba(67,181,129,.3);border-right-color:rgba(67,181,129,.3);border-bottom-color:rgba(67,181,129,.3)}
+  .task.completed{opacity:.6}
+  .task.completed .task-title{text-decoration:line-through;color:var(--text-muted)}
+  .task.overdue{background:var(--bg-overdue)}
+  .task.due-today{background:var(--bg-today)}
+  .task input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+  .task-content{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px}
+  .task-title{font-size:0.9rem;font-weight:500;color:var(--text-primary);word-break:break-word}
+  .task-meta{display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap}
+
+  /* ── Badges ── */
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:0.7rem;font-weight:600;white-space:nowrap}
+  .badge-high{background:var(--badge-high-bg);color:var(--badge-high-fg)}
+  .badge-medium{background:var(--badge-med-bg);color:var(--badge-med-fg)}
+  .badge-low{background:var(--badge-low-bg);color:var(--badge-low-fg)}
+  .badge-overdue{background:var(--badge-over-bg);color:var(--badge-over-fg)}
+  .badge-today{background:var(--badge-today-bg);color:var(--badge-today-fg)}
+  .date-text{font-size:0.75rem;color:var(--text-muted);white-space:nowrap}
+
+  .subtask-count{
+    font-size:0.72rem;font-weight:600;color:var(--text-secondary);
+    background:var(--bg-input);border:1px solid var(--border);
+    border-radius:4px;padding:2px 7px;cursor:pointer;white-space:nowrap;
+  }
+
+  /* ── Task actions ── */
+  .task-actions{display:flex;gap:4px;flex-shrink:0}
+  .task-actions button{
+    padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:5px;
+    color:var(--text-secondary);font-size:0.73rem;font-weight:500;cursor:pointer;
+    min-height:32px;
+  }
+  .task-actions button:hover{color:#f87171;border-color:#f87171}
+  .task-actions .edit-btn:hover{color:var(--accent);border-color:var(--accent)}
+  .task-actions .sub-btn:hover{color:var(--accent-sub);border-color:var(--accent-sub)}
+
+  /* ── Subtasks ── */
+  .subtasks{margin-left:20px;padding-left:10px;border-left:2px solid var(--border);margin-bottom:2px}
+  .subtasks .task{background:var(--bg);border-color:var(--border)}
+  .subtask-add{display:flex;gap:6px;margin:4px 0 6px 20px;padding-left:10px;border-left:2px solid var(--border)}
+  .subtask-add input{
+    flex:1;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);
+    border-radius:6px;color:var(--text-primary);font-size:0.85rem;outline:none;
+  }
+  .subtask-add input:focus{border-color:var(--border-focus)}
+  .subtask-add button{
+    padding:8px 14px;background:var(--accent-sub);border:none;border-radius:6px;
+    color:#fff;font-size:0.8rem;font-weight:600;cursor:pointer;
+  }
+
+  /* ── Empty ── */
+  .task-list-sortable{min-height:4px}
+  .task-list-sortable.drop-empty{
+    min-height:44px;border:2px dashed var(--border);border-radius:8px;
+    display:flex;align-items:center;justify-content:center;
+    color:var(--text-muted);font-size:0.8rem;
+  }
+  .empty-state{text-align:center;padding:48px;color:var(--text-muted);font-size:0.9rem}
+
+  /* ── Modal ── */
+  .modal-overlay{display:none;position:fixed;inset:0;background:var(--modal-overlay);z-index:100;justify-content:center;align-items:flex-end;backdrop-filter:blur(2px)}
+  .modal-overlay.show{display:flex}
+  .modal{background:var(--modal-bg);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:22px;width:100%;max-width:500px;box-shadow:0 -4px 32px rgba(0,0,0,.25);max-height:85vh;overflow-y:auto}
+  .modal h2{font-size:1.05rem;font-weight:700;margin-bottom:4px}
+  .modal label{display:block;font-size:0.78rem;font-weight:600;color:var(--text-secondary);margin:12px 0 4px}
+  .modal input,.modal select{
+    width:100%;padding:10px 12px;background:var(--bg-input);border:1px solid var(--border);
+    border-radius:7px;color:var(--text-primary);font-size:0.9rem;outline:none;
+  }
+  .modal input:focus,.modal select:focus{border-color:var(--border-focus)}
+  .modal-buttons{display:flex;gap:8px;margin-top:18px;justify-content:flex-end}
+  .modal-buttons button{padding:10px 18px;border-radius:7px;border:none;cursor:pointer;font-size:0.85rem;font-weight:600;min-height:44px}
+  .modal-buttons .save-btn{background:var(--accent);color:#fff}
+  .modal-buttons .cancel-btn{background:var(--bg-input);color:var(--text-secondary);border:1px solid var(--border)}
+
+  /* ── Color picker ── */
+  .color-picker{display:flex;gap:6px;flex-wrap:wrap;padding:4px 0}
+  .color-swatch{width:32px;height:32px;border-radius:6px;cursor:pointer;border:2px solid transparent}
+  .color-swatch.selected{border-color:var(--text-primary);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--text-primary)}
+  .color-swatch.no-color{background:var(--bg-input);border:2px dashed var(--border);display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:var(--text-muted)}
+
+  /* ── Sync status ── */
+  .sync-bar{
+    position:fixed;bottom:0;left:0;right:0;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 16px;background:var(--bg-raised);border-top:1px solid var(--border);
+    font-size:0.72rem;color:var(--text-muted);z-index:60;
+    min-height:36px;
+  }
+  .sync-bar .sync-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+  .sync-dot.ok{background:#43b581}
+  .sync-dot.busy{background:#faa61a;animation:pulse 1s infinite}
+  .sync-dot.err{background:#f04747}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .sync-bar button{
+    padding:4px 10px;background:transparent;border:1px solid var(--border);border-radius:4px;
+    color:var(--text-secondary);font-size:0.7rem;cursor:pointer;
+  }
+
+  /* ── Date input ── */
+  input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(1)}
+  @media(prefers-color-scheme:light){input[type="date"]::-webkit-calendar-picker-indicator{filter:none}}
+</style>
+</head>
+<body>
+
+<!-- Login Screen -->
+<div id="loginScreen">
+  <div class="login-card">
+    <h1>Task Manager</h1>
+    <p class="login-sub">pCloudアカウントでログインしてデータを同期</p>
+    <label>メールアドレス</label>
+    <input type="email" id="loginEmail" autocomplete="email">
+    <label>パスワード</label>
+    <input type="password" id="loginPassword" autocomplete="current-password">
+    <label>データベースのパス (pCloud内)</label>
+    <input type="text" id="loginDbPath" placeholder="/90_tools/task-manager/tasks.db">
+    <div class="login-hint">pCloudアプリで対象ファイルのパスを確認してください</div>
+    <label>サーバー地域</label>
+    <select id="loginRegion">
+      <option value="EU">ヨーロッパ (eapi.pcloud.com)</option>
+      <option value="US">アメリカ (api.pcloud.com)</option>
+    </select>
+    <button class="login-btn" id="loginBtn">ログイン</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- Main App -->
+<div id="appScreen" style="display:none">
+  <div class="container">
+    <div class="sticky-top">
+      <form class="add-form" id="addForm">
+        <div class="add-row1">
+          <input type="text" name="title" placeholder="タスク名" required>
+          <button type="submit" class="submit-btn">追加</button>
+        </div>
+        <div class="add-row2">
+          <input type="text" name="project" placeholder="プロジェクト名">
+          <select name="list_id" id="addFormListId"></select>
+          <select name="priority">
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+          <input type="date" name="due_date">
+        </div>
+      </form>
+      <div class="controls">
+        <div class="list-row">
+          <div class="list-tabs" id="listTabs"></div>
+          <div class="controls-right">
+            <button class="toggle-btn" id="toggleCompleted">完了済みを表示</button>
+            <span class="task-count" id="taskCount"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="taskList"></div>
+  </div>
+
+  <div class="sync-bar" id="syncBar">
+    <span><span class="sync-dot ok" id="syncDot"></span><span id="syncText">同期済み</span></span>
+    <button onclick="logout()">ログアウト</button>
+  </div>
+</div>
+
+<!-- Edit Task Modal -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2>タスクを編集</h2>
+    <input type="hidden" id="editId">
+    <label>タイトル</label><input type="text" id="editTitle">
+    <label>プロジェクト</label><input type="text" id="editProject">
+    <label>優先度</label>
+    <select id="editPriority"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select>
+    <label>期限日</label><input type="date" id="editDueDate">
+    <div class="modal-buttons">
+      <button class="cancel-btn" id="editCancel">キャンセル</button>
+      <button class="save-btn" id="editSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit List Modal -->
+<div class="modal-overlay" id="editListModal">
+  <div class="modal">
+    <h2>リストを編集</h2>
+    <input type="hidden" id="editListId">
+    <label>リスト名</label><input type="text" id="editListName">
+    <label>カラー</label><div class="color-picker" id="colorPicker"></div>
+    <div class="modal-buttons">
+      <button class="cancel-btn" id="editListDelete" style="color:#f87171;border-color:#f87171">削除</button>
+      <span style="flex:1"></span>
+      <button class="cancel-btn" id="editListCancel">キャンセル</button>
+      <button class="save-btn" id="editListSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Project Modal -->
+<div class="modal-overlay" id="editProjectModal">
+  <div class="modal">
+    <h2>プロジェクトを編集</h2>
+    <input type="hidden" id="editProjId">
+    <label>プロジェクト名</label><input type="text" id="editProjName">
+    <label>期限日</label><input type="date" id="editProjDueDate">
+    <div class="modal-buttons">
+      <button class="cancel-btn" id="editProjCancel">キャンセル</button>
+      <button class="save-btn" id="editProjSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-wasm.js"></script>
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// Configuration & State
+// ══════════════════════════════════════════════════════════════════════════════
+
+const PCLOUD = { US: 'https://api.pcloud.com', EU: 'https://eapi.pcloud.com' };
+let config = { token: null, apiBase: '', dbPath: '' };
+let SQL = null, db = null;
+let allTasks = [], allLists = [], allProjects = [];
+let currentView = null;
+let showCompleted = false;
+let collapsedSubtasks = new Set();
+let addingSubtaskFor = null;
+let lastKnownHash = null;
+let syncTimer = null;
+let uploadTimer = null;
+let uploading = false;
+let pendingUpload = false;
+
+const $ = s => document.querySelector(s);
+const today = new Date().toISOString().slice(0, 10);
+
+// ══════════════════════════════════════════════════════════════════════════════
+// IndexedDB Cache
+// ══════════════════════════════════════════════════════════════════════════════
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('TaskManagerCache', 1);
+    req.onupgradeneeded = () => req.result.createObjectStore('db');
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSave(dbBytes, hash) {
+  try {
+    const idb = await idbOpen();
+    const tx = idb.transaction('db', 'readwrite');
+    const store = tx.objectStore('db');
+    store.put(dbBytes, 'data');
+    store.put(hash, 'hash');
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    idb.close();
+  } catch (_) {}
+}
+
+async function idbLoad() {
+  try {
+    const idb = await idbOpen();
+    const tx = idb.transaction('db', 'readonly');
+    const store = tx.objectStore('db');
+    const data = await new Promise(res => { const r = store.get('data'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+    const hash = await new Promise(res => { const r = store.get('hash'); r.onsuccess = () => res(r.result); r.onerror = () => res(null); });
+    idb.close();
+    return { data, hash };
+  } catch (_) {
+    return { data: null, hash: null };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// pCloud API
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function pcloudCall(method, params = {}) {
+  const url = new URL(`${config.apiBase}/${method}`);
+  url.searchParams.set('auth', config.token);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url.toString());
+  const data = await res.json();
+  if (data.result !== 0) throw new Error(data.error || `pCloud error ${data.result}`);
+  return data;
+}
+
+async function pcloudLogin(email, password, apiBase) {
+  const body = new URLSearchParams({
+    getauth: '1', username: email, password: password,
+    authexpire: '63072000', authinactiveexpire: '5356800',
+  });
+  const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body });
+  const data = await res.json();
+  if (data.result !== 0) throw new Error(data.error || 'Login failed');
+  return data.auth;
+}
+
+async function pcloudStat() {
+  const data = await pcloudCall('stat', { path: config.dbPath });
+  return data.metadata;
+}
+
+async function pcloudDownloadViaFileRead() {
+  const meta = await pcloudStat();
+  const size = meta.size;
+  if (size === 0) return null;
+
+  const openData = await pcloudCall('file_open', { path: config.dbPath, flags: '0' });
+  const fd = openData.fd;
+
+  try {
+    const readUrl = new URL(`${config.apiBase}/file_read`);
+    readUrl.searchParams.set('auth', config.token);
+    readUrl.searchParams.set('fd', fd);
+    readUrl.searchParams.set('count', size);
+    const readRes = await fetch(readUrl.toString());
+    const ct = readRes.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      const err = await readRes.json();
+      throw new Error(err.error || 'file_read failed');
+    }
+    return await readRes.arrayBuffer();
+  } finally {
+    try { await pcloudCall('file_close', { fd }); } catch (_) {}
+  }
+}
+
+async function pcloudDownloadViaGetFileLink() {
+  const data = await pcloudCall('getfilelink', { path: config.dbPath });
+  const host = data.hosts[0];
+  const dlPath = data.path;
+  const url = `https://${host}${dlPath}`;
+  const res = await fetch(url, { referrerPolicy: 'no-referrer' });
+  if (!res.ok) throw new Error('getfilelink download failed');
+  return await res.arrayBuffer();
+}
+
+async function pcloudDownload() {
+  try {
+    return await pcloudDownloadViaFileRead();
+  } catch (e) {
+    console.warn('file_read failed, trying getfilelink fallback:', e);
+    return await pcloudDownloadViaGetFileLink();
+  }
+}
+
+async function pcloudUpload(data) {
+  const lastSlash = config.dbPath.lastIndexOf('/');
+  const folder = config.dbPath.substring(0, lastSlash) || '/';
+  const filename = config.dbPath.substring(lastSlash + 1);
+
+  const blob = new Blob([data]);
+  const formData = new FormData();
+  formData.append('file', blob, filename);
+
+  const url = `${config.apiBase}/uploadfile?path=${encodeURIComponent(folder)}&nopartial=1&auth=${config.token}`;
+  const res = await fetch(url, { method: 'POST', body: formData });
+  const result = await res.json();
+  if (result.result !== 0) throw new Error(result.error || 'Upload failed');
+  return result;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Database Layer
+// ══════════════════════════════════════════════════════════════════════════════
+
+function initDb(buffer) {
+  if (db) { try { db.close(); } catch (_) {} }
+  db = buffer ? new SQL.Database(new Uint8Array(buffer)) : new SQL.Database();
+
+  db.run(`CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+    project TEXT DEFAULT '', priority TEXT DEFAULT 'medium' CHECK(priority IN ('high','medium','low')),
+    due_date TEXT, completed INTEGER DEFAULT 0, parent_id INTEGER DEFAULT NULL,
+    sort_order INTEGER DEFAULT 0, list_id INTEGER DEFAULT NULL,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (parent_id) REFERENCES tasks(id) ON DELETE CASCADE
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS lists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+    sort_order INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now','localtime'))
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+    list_id INTEGER DEFAULT NULL, sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (list_id) REFERENCES lists(id) ON DELETE SET NULL
+  )`);
+  try { db.run('ALTER TABLE tasks ADD COLUMN parent_id INTEGER DEFAULT NULL'); } catch (_) {}
+  try { db.run('ALTER TABLE tasks ADD COLUMN sort_order INTEGER DEFAULT 0'); } catch (_) {}
+  try { db.run('ALTER TABLE tasks ADD COLUMN list_id INTEGER DEFAULT NULL'); } catch (_) {}
+  try { db.run('ALTER TABLE projects ADD COLUMN due_date TEXT'); } catch (_) {}
+  try { db.run('ALTER TABLE lists ADD COLUMN color TEXT'); } catch (_) {}
+}
+
+function dbRun(sql, params = []) { db.run(sql, params); }
+
+function dbAll(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length) stmt.bind(params);
+  const results = [];
+  while (stmt.step()) results.push(stmt.getAsObject());
+  stmt.free();
+  return results;
+}
+
+function dbOne(sql, params = []) {
+  const stmt = db.prepare(sql);
+  if (params.length) stmt.bind(params);
+  let result = null;
+  if (stmt.step()) result = stmt.getAsObject();
+  stmt.free();
+  return result;
+}
+
+function dbExport() { return db.export(); }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Sync
+// ══════════════════════════════════════════════════════════════════════════════
+
+function setSyncStatus(state, text) {
+  const dot = $('#syncDot');
+  const txt = $('#syncText');
+  if (dot) dot.className = 'sync-dot ' + state;
+  if (txt) txt.textContent = text;
+}
+
+function scheduleUpload() {
+  clearTimeout(uploadTimer);
+  setSyncStatus('busy', '保存中...');
+  // Always save to IndexedDB immediately
+  const data = dbExport();
+  idbSave(data, lastKnownHash);
+  uploadTimer = setTimeout(doUpload, 500);
+}
+
+async function doUpload() {
+  if (uploading) { uploadTimer = setTimeout(doUpload, 500); return; }
+  if (!navigator.onLine) {
+    pendingUpload = true;
+    setSyncStatus('err', 'オフライン (ローカル保存済み)');
+    return;
+  }
+  uploading = true;
+  try {
+    const data = dbExport();
+    await pcloudUpload(data);
+    const meta = await pcloudStat();
+    lastKnownHash = meta.hash;
+    await idbSave(data, lastKnownHash);
+    pendingUpload = false;
+    setSyncStatus('ok', '同期済み');
+  } catch (e) {
+    console.error('Upload error:', e);
+    pendingUpload = true;
+    setSyncStatus('err', '同期エラー (ローカル保存済み)');
+  } finally {
+    uploading = false;
+  }
+}
+
+async function pollForChanges() {
+  if (uploading || !navigator.onLine) return;
+  try {
+    const meta = await pcloudStat();
+    if (meta.hash !== lastKnownHash) {
+      setSyncStatus('busy', '読み込み中...');
+      const buffer = await pcloudDownload();
+      if (buffer) {
+        initDb(buffer);
+        lastKnownHash = meta.hash;
+        await idbSave(buffer, lastKnownHash);
+        loadDataAndRender();
+      }
+      setSyncStatus('ok', '同期済み');
+    }
+  } catch (e) {
+    console.error('Poll error:', e);
+    setSyncStatus('err', '接続エラー');
+  }
+}
+
+function startSync() {
+  if (syncTimer) clearInterval(syncTimer);
+  syncTimer = setInterval(pollForChanges, 5000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Business Logic (replaces server.js API calls)
+// ══════════════════════════════════════════════════════════════════════════════
+
+// Lists
+function apiGetLists() { return dbAll('SELECT * FROM lists ORDER BY sort_order ASC, id ASC'); }
+function apiCreateList(name) {
+  const m = dbOne('SELECT COALESCE(MAX(sort_order),-1) as m FROM lists');
+  dbRun('INSERT INTO lists (name, sort_order) VALUES (?, ?)', [name, (m?.m ?? -1) + 1]);
+  scheduleUpload();
+}
+function apiUpdateList(id, fields) {
+  const u = [], v = [];
+  if (fields.name !== undefined) { u.push('name = ?'); v.push(fields.name); }
+  if (fields.sort_order !== undefined) { u.push('sort_order = ?'); v.push(fields.sort_order); }
+  if (fields.color !== undefined) { u.push('color = ?'); v.push(fields.color); }
+  if (!u.length) return;
+  v.push(id);
+  dbRun(`UPDATE lists SET ${u.join(', ')} WHERE id = ?`, v);
+  scheduleUpload();
+}
+function apiDeleteList(id) {
+  dbRun('UPDATE tasks SET list_id = NULL WHERE list_id = ?', [id]);
+  dbRun('UPDATE projects SET list_id = NULL WHERE list_id = ?', [id]);
+  dbRun('DELETE FROM lists WHERE id = ?', [id]);
+  scheduleUpload();
+}
+function apiReorderLists(items) {
+  for (const it of items) dbRun('UPDATE lists SET sort_order = ? WHERE id = ?', [it.sort_order, it.id]);
+  scheduleUpload();
+}
+
+// Projects
+function apiGetProjects() { return dbAll('SELECT * FROM projects ORDER BY sort_order ASC, id ASC'); }
+function apiCreateProject(name, listId) {
+  const m = dbOne('SELECT COALESCE(MAX(sort_order),-1) as m FROM projects');
+  dbRun('INSERT INTO projects (name, list_id, sort_order) VALUES (?, ?, ?)', [name, listId || null, (m?.m ?? -1) + 1]);
+  scheduleUpload();
+}
+function apiUpdateProject(id, fields) {
+  const u = [], v = [];
+  if (fields.name !== undefined) { u.push('name = ?'); v.push(fields.name); }
+  if (fields.list_id !== undefined) { u.push('list_id = ?'); v.push(fields.list_id); }
+  if (fields.sort_order !== undefined) { u.push('sort_order = ?'); v.push(fields.sort_order); }
+  if (fields.due_date !== undefined) { u.push('due_date = ?'); v.push(fields.due_date); }
+  if (!u.length) return;
+  v.push(id);
+  dbRun(`UPDATE projects SET ${u.join(', ')} WHERE id = ?`, v);
+  scheduleUpload();
+}
+function apiDeleteProject(id) {
+  const proj = dbOne('SELECT * FROM projects WHERE id = ?', [id]);
+  if (!proj) return;
+  const tasks = dbAll('SELECT id FROM tasks WHERE project = ? AND (parent_id IS NULL OR parent_id = 0)', [proj.name]);
+  for (const t of tasks) {
+    dbRun('DELETE FROM tasks WHERE parent_id = ?', [t.id]);
+    dbRun('DELETE FROM tasks WHERE id = ?', [t.id]);
+  }
+  dbRun('DELETE FROM projects WHERE id = ?', [id]);
+  scheduleUpload();
+}
+function apiReorderProjects(items) {
+  for (const it of items) dbRun('UPDATE projects SET sort_order = ? WHERE id = ?', [it.sort_order, it.id]);
+  scheduleUpload();
+}
+
+// Tasks
+function apiGetTasks() {
+  return dbAll(`SELECT * FROM tasks ORDER BY sort_order ASC,
+    CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 WHEN 'low' THEN 2 END,
+    CASE WHEN due_date IS NULL THEN 1 ELSE 0 END, due_date ASC, created_at DESC`);
+}
+function apiCreateTask(data) {
+  let proj = (data.project || '').trim();
+  if (data.parent_id) {
+    const parent = dbOne('SELECT * FROM tasks WHERE id = ?', [data.parent_id]);
+    if (parent && !proj) proj = parent.project;
+  }
+  if (proj) {
+    const exists = dbOne('SELECT id FROM projects WHERE name = ?', [proj]);
+    if (!exists) {
+      const m = dbOne('SELECT COALESCE(MAX(sort_order),-1) as m FROM projects');
+      dbRun('INSERT INTO projects (name, list_id, sort_order) VALUES (?, ?, ?)', [proj, data.list_id || null, (m?.m ?? -1) + 1]);
+    }
+  }
+  const m = dbOne('SELECT COALESCE(MAX(sort_order),-1) as m FROM tasks WHERE parent_id IS ?', [data.parent_id || null]);
+  dbRun('INSERT INTO tasks (title, project, priority, due_date, parent_id, sort_order) VALUES (?, ?, ?, ?, ?, ?)',
+    [data.title.trim(), proj, data.priority || 'medium', data.due_date || null, data.parent_id || null, (m?.m ?? -1) + 1]);
+  scheduleUpload();
+}
+function apiUpdateTask(id, fields) {
+  const allowed = ['title', 'project', 'priority', 'due_date', 'completed', 'parent_id', 'sort_order'];
+  const u = [], v = [];
+  for (const f of allowed) {
+    if (fields[f] !== undefined) { u.push(`${f} = ?`); v.push(fields[f]); }
+  }
+  if (!u.length) return;
+  v.push(id);
+  dbRun(`UPDATE tasks SET ${u.join(', ')} WHERE id = ?`, v);
+  if (fields.completed === 1) dbRun('UPDATE tasks SET completed = 1 WHERE parent_id = ?', [id]);
+  scheduleUpload();
+}
+function apiDeleteTask(id) {
+  dbRun('DELETE FROM tasks WHERE parent_id = ?', [id]);
+  dbRun('DELETE FROM tasks WHERE id = ?', [id]);
+  scheduleUpload();
+}
+function apiReorderTasks(items) {
+  for (const it of items) {
+    if (it.project !== undefined) {
+      dbRun('UPDATE tasks SET sort_order = ?, project = ? WHERE id = ?',
+        [it.sort_order, it.project === '(プロジェクトなし)' ? '' : it.project, it.id]);
+    } else {
+      dbRun('UPDATE tasks SET sort_order = ? WHERE id = ?', [it.sort_order, it.id]);
+    }
+  }
+  scheduleUpload();
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI Layer
+// ══════════════════════════════════════════════════════════════════════════════
+
+function loadDataAndRender() {
+  allLists = apiGetLists();
+  allProjects = apiGetProjects();
+  allTasks = apiGetTasks();
+  if (currentView === null && allLists.length > 0) {
+    currentView = { type: 'list', id: allLists[0].id };
+  }
+  renderListTabs();
+  render();
+}
+
+function getParentTasks() { return allTasks.filter(t => t.parent_id === null || t.parent_id === 0); }
+function getSubtasks(pid) { return allTasks.filter(t => t.parent_id === pid); }
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function renderListTabs() {
+  const container = $('#listTabs');
+  const isDL = currentView?.type === 'deadline';
+  const isUncat = currentView?.type === 'uncategorized';
+  let html = `<button class="list-tab ${isUncat ? 'active' : ''}" onclick="switchView({type:'uncategorized'})">未分類</button>`;
+  for (const list of allLists) {
+    const active = currentView?.type === 'list' && currentView.id === list.id;
+    const c = list.color;
+    let style = '';
+    if (c && active) style = `background:${c};border-color:${c};color:#fff;`;
+    else if (c && !active) style = `background:${c}22;border-color:${c}66;color:${c};`;
+    html += `<button class="list-tab ${active && !c ? 'active' : ''}" data-list-id="${list.id}"
+      style="${style}" onclick="switchView({type:'list',id:${list.id}})"
+      ondblclick="event.stopPropagation();renameList(${list.id})">${esc(list.name)}</button>`;
+  }
+  html += `<button class="add-list-btn" onclick="addList()">+</button>`;
+  html += `<button class="list-tab filter-tab ${isDL ? 'active-dl' : ''}" onclick="switchView({type:'deadline'})">期限</button>`;
+  container.innerHTML = html;
+  updateAddFormListSelect();
+}
+
+function updateAddFormListSelect() {
+  const sel = $('#addFormListId');
+  const activeListId = currentView?.type === 'list' ? currentView.id : null;
+  let html = `<option value="" ${!activeListId ? 'selected' : ''}>リストなし</option>`;
+  for (const list of allLists) html += `<option value="${list.id}" ${list.id === activeListId ? 'selected' : ''}>${esc(list.name)}</option>`;
+  sel.innerHTML = html;
+}
+
+function switchView(view) { currentView = view; renderListTabs(); render(); }
+
+function addList() {
+  const name = prompt('リスト名を入力:');
+  if (!name || !name.trim()) return;
+  apiCreateList(name.trim());
+  loadDataAndRender();
+}
+
+const LIST_COLORS = [null, '#5865f2', '#3ba55c', '#faa61a', '#f04747', '#9b59b6', '#e91e63', '#00bcd4', '#ff9800', '#607d8b', '#795548'];
+let editListColor = null;
+
+function renameList(id) {
+  const list = allLists.find(l => l.id === id);
+  if (!list) return;
+  $('#editListId').value = list.id;
+  $('#editListName').value = list.name;
+  editListColor = list.color || null;
+  renderColorPicker();
+  $('#editListModal').classList.add('show');
+}
+
+function renderColorPicker() {
+  const container = $('#colorPicker');
+  let html = `<div class="color-swatch no-color ${!editListColor ? 'selected' : ''}" onclick="pickListColor(null)">なし</div>`;
+  for (const c of LIST_COLORS) {
+    if (!c) continue;
+    html += `<div class="color-swatch ${editListColor === c ? 'selected' : ''}" style="background:${c}" onclick="pickListColor('${c}')"></div>`;
+  }
+  container.innerHTML = html;
+}
+function pickListColor(c) { editListColor = c; renderColorPicker(); }
+
+function startAddTaskInProject(projectName) {
+  const form = $('#addForm');
+  form.querySelector('[name="project"]').value = projectName;
+  const proj = allProjects.find(p => p.name === projectName);
+  form.querySelector('[name="list_id"]').value = (proj && proj.list_id) ? String(proj.list_id) : '';
+  const ti = form.querySelector('[name="title"]');
+  ti.focus();
+  ti.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function openEditProject(projId) {
+  const proj = allProjects.find(p => p.id === projId);
+  if (!proj) return;
+  $('#editProjId').value = proj.id;
+  $('#editProjName').value = proj.name;
+  $('#editProjDueDate').value = proj.due_date || '';
+  $('#editProjectModal').classList.add('show');
+}
+
+function deleteProject(projId) {
+  if (!confirm('このプロジェクトとそのタスクをすべて削除しますか？')) return;
+  apiDeleteProject(projId);
+  loadDataAndRender();
+}
+
+function assignProjectToList(sel) {
+  const projectId = Number(sel.dataset.projectId);
+  if (!projectId) return;
+  const listId = sel.value ? Number(sel.value) : null;
+  apiUpdateProject(projectId, { list_id: listId });
+  loadDataAndRender();
+}
+
+function render() {
+  const parents = getParentTasks();
+  let displayParents = showCompleted ? parents : parents.filter(t => !t.completed);
+
+  if (currentView?.type === 'list') {
+    const projNames = new Set(allProjects.filter(p => p.list_id === currentView.id).map(p => p.name));
+    displayParents = displayParents.filter(t => projNames.has(t.project || ''));
+  } else if (currentView?.type === 'uncategorized') {
+    const assigned = new Set(allProjects.filter(p => p.list_id).map(p => p.name));
+    displayParents = displayParents.filter(t => !assigned.has(t.project || ''));
+  } else if (currentView?.type === 'deadline') {
+    displayParents = displayParents.filter(t => t.due_date).sort((a, b) => a.due_date.localeCompare(b.due_date));
+  }
+
+  const groups = {};
+  for (const t of displayParents) {
+    const p = t.project || '(プロジェクトなし)';
+    if (!groups[p]) groups[p] = [];
+    groups[p].push(t);
+  }
+  if (!currentView || currentView.type === 'list') {
+    for (const proj of allProjects) {
+      if (currentView?.type === 'list' && proj.list_id !== currentView.id) continue;
+      const name = proj.name || '(プロジェクトなし)';
+      if (!groups[name]) groups[name] = [];
+    }
+  }
+
+  const el = $('#taskList');
+  const activeCount = parents.filter(t => !t.completed).length;
+  $('#taskCount').textContent = `未完了: ${activeCount}件`;
+
+  const allGroupKeys = Object.keys(groups);
+  if (allGroupKeys.length === 0) { el.innerHTML = '<div class="empty-state">タスクはありません</div>'; return; }
+
+  const sorted = allGroupKeys.sort((a, b) => {
+    if (a === '(プロジェクトなし)') return 1;
+    if (b === '(プロジェクトなし)') return -1;
+    const pa = allProjects.find(p => p.name === a);
+    const pb = allProjects.find(p => p.name === b);
+    return (pa ? pa.sort_order : 999) - (pb ? pb.sort_order : 999);
+  });
+
+  let html = '';
+  for (const project of sorted) {
+    const tasks = groups[project] || [];
+    const isEmpty = tasks.length === 0;
+    const projData = allProjects.find(p => p.name === project);
+
+    let listSelHtml = '';
+    if (project !== '(プロジェクトなし)' && projData) {
+      let opts = `<option value="">リストなし</option>`;
+      for (const list of allLists) opts += `<option value="${list.id}" ${projData.list_id === list.id ? 'selected' : ''}>${esc(list.name)}</option>`;
+      listSelHtml = `<select class="proj-list-sel" data-project-id="${projData.id}"
+        onchange="assignProjectToList(this)" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">${opts}</select>`;
+    }
+
+    let projDueHtml = '', projActionsHtml = '';
+    if (project !== '(プロジェクトなし)' && projData) {
+      if (projData.due_date) {
+        const isOverdue = projData.due_date < today;
+        projDueHtml = `<span class="proj-due ${isOverdue ? 'proj-overdue' : ''}">${isOverdue ? '期限切れ ' : ''}${projData.due_date}</span>`;
+      }
+      projActionsHtml = `<span class="proj-actions" onmousedown="event.stopPropagation()" onclick="event.stopPropagation()">
+        <button class="proj-add-btn" onclick="startAddTaskInProject('${esc(project).replace(/'/g,"\\'")}')">+</button>
+        <button onclick="openEditProject(${projData.id})">編集</button>
+        <button class="proj-del-btn" onclick="deleteProject(${projData.id})">削除</button>
+      </span>`;
+    }
+
+    html += `<div class="project-group" data-project="${esc(project)}">`;
+    html += `<div class="project-header" data-project="${esc(project)}">
+      <span class="proj-name">${esc(project)}</span>${projDueHtml}${listSelHtml}${projActionsHtml}</div>`;
+    html += `<div class="task-list-sortable${isEmpty ? ' drop-empty' : ''}" data-project="${esc(project)}">`;
+    if (isEmpty) html += `<span>タスクなし</span>`;
+    else for (const t of tasks) html += renderTask(t, false);
+    html += `</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
+function renderTask(t, isSub) {
+  const isOverdue = t.due_date && t.due_date < today && !t.completed;
+  const isToday = t.due_date === today && !t.completed;
+  let cls = `task priority-${t.priority}`;
+  if (t.completed) cls += ' completed';
+  if (isOverdue) cls += ' overdue';
+  else if (isToday) cls += ' due-today';
+
+  const subtasks = getSubtasks(t.id);
+  const subCompleted = subtasks.filter(s => s.completed).length;
+  const subTotal = subtasks.length;
+  const expanded = !collapsedSubtasks.has(t.id);
+
+  let meta = '';
+  if (t.due_date) {
+    if (isOverdue) meta += `<span class="badge badge-overdue">期限切れ ${t.due_date}</span>`;
+    else if (isToday) meta += `<span class="badge badge-today">今日 ${t.due_date}</span>`;
+    else meta += `<span class="date-text">${t.due_date}</span>`;
+  }
+  meta += `<span class="badge badge-${t.priority}">${t.priority}</span>`;
+  if (!isSub && subTotal > 0) {
+    meta += `<span class="subtask-count" onclick="toggleSubtasks(${t.id})">${expanded ? '▼' : '▶'} ${subCompleted}/${subTotal}</span>`;
+  }
+
+  let html = `<div class="${cls}" data-id="${t.id}" data-parent="${t.parent_id || ''}">
+    <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleComplete(${t.id}, this.checked)">
+    <div class="task-content"><span class="task-title">${esc(t.title)}</span><span class="task-meta">${meta}</span></div>
+    <div class="task-actions">
+      ${!isSub ? `<button class="sub-btn" onclick="startAddSubtask(${t.id})">+子</button>` : ''}
+      <button class="edit-btn" onclick="openEdit(${t.id})">編集</button>
+      <button onclick="deleteTask(${t.id})">削除</button>
+    </div>
+  </div>`;
+
+  if (!isSub && subTotal > 0 && expanded) {
+    const filtered = showCompleted ? subtasks : subtasks.filter(s => !s.completed);
+    if (filtered.length > 0) {
+      html += `<div class="subtasks" data-parent-id="${t.id}">`;
+      for (const sub of filtered) html += renderTask(sub, true);
+      html += `</div>`;
+    }
+  }
+
+  if (!isSub && addingSubtaskFor === t.id) {
+    html += `<div class="subtask-add">
+      <input type="text" id="subtaskInput_${t.id}" placeholder="サブタスク名"
+        onkeydown="if(event.key==='Enter'){addSubtask(${t.id});event.preventDefault()}if(event.key==='Escape'){cancelSubtask()}">
+      <button onclick="addSubtask(${t.id})">追加</button>
+    </div>`;
+  }
+  return html;
+}
+
+// ── Task actions ──
+
+function toggleComplete(id, completed) {
+  apiUpdateTask(id, { completed: completed ? 1 : 0 });
+  allTasks = apiGetTasks();
+  render();
+}
+
+function deleteTask(id) {
+  if (!confirm('このタスクを削除しますか？')) return;
+  apiDeleteTask(id);
+  loadDataAndRender();
+}
+
+function toggleSubtasks(id) {
+  if (collapsedSubtasks.has(id)) collapsedSubtasks.delete(id);
+  else collapsedSubtasks.add(id);
+  render();
+}
+
+function startAddSubtask(parentId) {
+  addingSubtaskFor = parentId;
+  collapsedSubtasks.delete(parentId);
+  render();
+  setTimeout(() => {
+    const input = document.getElementById(`subtaskInput_${parentId}`);
+    if (input) input.focus();
+  }, 50);
+}
+function cancelSubtask() { addingSubtaskFor = null; render(); }
+
+function addSubtask(parentId) {
+  const input = document.getElementById(`subtaskInput_${parentId}`);
+  if (!input || !input.value.trim()) return;
+  apiCreateTask({ title: input.value.trim(), parent_id: parentId });
+  addingSubtaskFor = null;
+  allTasks = apiGetTasks();
+  render();
+}
+
+function openEdit(id) {
+  const t = allTasks.find(t => t.id === id);
+  if (!t) return;
+  $('#editId').value = t.id;
+  $('#editTitle').value = t.title;
+  $('#editProject').value = t.project;
+  $('#editPriority').value = t.priority;
+  $('#editDueDate').value = t.due_date || '';
+  $('#editModal').classList.add('show');
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Event Listeners
+// ══════════════════════════════════════════════════════════════════════════════
+
+$('#loginBtn').addEventListener('click', async () => {
+  const email = $('#loginEmail').value.trim();
+  const password = $('#loginPassword').value;
+  const dbPath = $('#loginDbPath').value.trim();
+  const region = $('#loginRegion').value;
+
+  if (!email || !password || !dbPath) {
+    showLoginError('すべての項目を入力してください');
+    return;
+  }
+
+  const btn = $('#loginBtn');
+  btn.disabled = true;
+  btn.textContent = 'ログイン中...';
+  hideLoginError();
+
+  const apiBase = PCLOUD[region];
+
+  try {
+    const token = await pcloudLogin(email, password, apiBase);
+    config = { token, apiBase, dbPath };
+    localStorage.setItem('taskManagerConfig', JSON.stringify(config));
+
+    setSyncStatus('busy', 'データベース読み込み中...');
+    const buffer = await pcloudDownload();
+    initDb(buffer);
+    const meta = await pcloudStat();
+    lastKnownHash = meta.hash;
+    await idbSave(buffer, lastKnownHash);
+
+    showApp();
+  } catch (e) {
+    showLoginError(e.message || 'ログインに失敗しました');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'ログイン';
+  }
+});
+
+function showLoginError(msg) { const el = $('#loginError'); el.textContent = msg; el.style.display = 'block'; }
+function hideLoginError() { $('#loginError').style.display = 'none'; }
+
+$('#addForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  apiCreateTask({
+    title: fd.get('title'),
+    project: (fd.get('project') || '').trim(),
+    priority: fd.get('priority'),
+    due_date: fd.get('due_date') || null,
+    list_id: fd.get('list_id') ? Number(fd.get('list_id')) : null,
+  });
+  e.target.reset();
+  loadDataAndRender();
+});
+
+$('#toggleCompleted').addEventListener('click', () => {
+  showCompleted = !showCompleted;
+  $('#toggleCompleted').textContent = showCompleted ? '完了済みを非表示' : '完了済みを表示';
+  $('#toggleCompleted').classList.toggle('active', showCompleted);
+  render();
+});
+
+$('#editCancel').addEventListener('click', () => $('#editModal').classList.remove('show'));
+$('#editModal').addEventListener('click', (e) => { if (e.target === $('#editModal')) $('#editModal').classList.remove('show'); });
+$('#editSave').addEventListener('click', () => {
+  const id = Number($('#editId').value);
+  apiUpdateTask(id, {
+    title: $('#editTitle').value,
+    project: $('#editProject').value,
+    priority: $('#editPriority').value,
+    due_date: $('#editDueDate').value || null,
+  });
+  $('#editModal').classList.remove('show');
+  loadDataAndRender();
+});
+
+$('#editListCancel').addEventListener('click', () => $('#editListModal').classList.remove('show'));
+$('#editListModal').addEventListener('click', (e) => { if (e.target === $('#editListModal')) $('#editListModal').classList.remove('show'); });
+$('#editListDelete').addEventListener('click', () => {
+  const id = Number($('#editListId').value);
+  if (!confirm('このリストを削除しますか？')) return;
+  apiDeleteList(id);
+  $('#editListModal').classList.remove('show');
+  if (currentView?.type === 'list' && currentView.id === id) currentView = null;
+  loadDataAndRender();
+});
+$('#editListSave').addEventListener('click', () => {
+  const id = Number($('#editListId').value);
+  const newName = $('#editListName').value.trim();
+  if (!newName) return;
+  apiUpdateList(id, { name: newName, color: editListColor });
+  $('#editListModal').classList.remove('show');
+  loadDataAndRender();
+});
+
+$('#editProjCancel').addEventListener('click', () => $('#editProjectModal').classList.remove('show'));
+$('#editProjectModal').addEventListener('click', (e) => { if (e.target === $('#editProjectModal')) $('#editProjectModal').classList.remove('show'); });
+$('#editProjSave').addEventListener('click', () => {
+  const id = Number($('#editProjId').value);
+  const newName = $('#editProjName').value.trim();
+  const dueDate = $('#editProjDueDate').value || null;
+  if (!newName) return;
+
+  const proj = allProjects.find(p => p.id === id);
+  const oldName = proj ? proj.name : '';
+
+  apiUpdateProject(id, { name: newName, due_date: dueDate });
+
+  if (oldName && oldName !== newName) {
+    const tasks = allTasks.filter(t => t.project === oldName);
+    for (const t of tasks) apiUpdateTask(t.id, { project: newName });
+  }
+
+  $('#editProjectModal').classList.remove('show');
+  loadDataAndRender();
+});
+
+function logout() {
+  if (!confirm('ログアウトしますか？')) return;
+  localStorage.removeItem('taskManagerConfig');
+  if (syncTimer) clearInterval(syncTimer);
+  config = { token: null, apiBase: '', dbPath: '' };
+  db = null;
+  $('#appScreen').style.display = 'none';
+  $('#loginScreen').style.display = 'flex';
+}
+
+// Online/offline handlers
+window.addEventListener('online', () => {
+  if (pendingUpload) {
+    setSyncStatus('busy', '同期再開中...');
+    doUpload();
+  } else {
+    setSyncStatus('ok', '同期済み');
+  }
+});
+
+window.addEventListener('offline', () => {
+  setSyncStatus('err', 'オフライン');
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// Initialization
+// ══════════════════════════════════════════════════════════════════════════════
+
+function showApp() {
+  $('#loginScreen').style.display = 'none';
+  $('#appScreen').style.display = 'block';
+  loadDataAndRender();
+  startSync();
+}
+
+async function init() {
+  // Register service worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  try {
+    SQL = await initSqlJs({
+      locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
+    });
+  } catch (e) {
+    alert('SQLエンジンの読み込みに失敗しました。ネットワーク接続を確認してください。');
+    return;
+  }
+
+  const saved = localStorage.getItem('taskManagerConfig');
+  if (!saved) {
+    $('#loginScreen').style.display = 'flex';
+    return;
+  }
+
+  config = JSON.parse(saved);
+
+  // Step 1: Try to load cached DB from IndexedDB for instant display
+  const cached = await idbLoad();
+  if (cached.data) {
+    initDb(cached.data);
+    lastKnownHash = cached.hash;
+    showApp();
+  }
+
+  // Step 2: Check pCloud for updates in the background
+  try {
+    const meta = await pcloudStat();
+    if (meta.hash !== lastKnownHash) {
+      setSyncStatus('busy', '最新データを取得中...');
+      const buffer = await pcloudDownload();
+      if (buffer) {
+        initDb(buffer);
+        lastKnownHash = meta.hash;
+        await idbSave(buffer, lastKnownHash);
+        loadDataAndRender();
+      }
+      setSyncStatus('ok', '同期済み');
+    }
+    // If we had no cached data and this is the first load
+    if (!cached.data && db) {
+      showApp();
+    }
+  } catch (e) {
+    console.error('pCloud sync failed:', e);
+    if (!cached.data) {
+      // No cache and no network - clear config and show login
+      localStorage.removeItem('taskManagerConfig');
+      $('#loginScreen').style.display = 'flex';
+    } else {
+      setSyncStatus('err', '接続エラー (キャッシュ表示中)');
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>
