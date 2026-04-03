@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tasks-v10';
+const CACHE_NAME = 'tasks-v11';
 const SHELL_URLS = [
   './',
   './index.html',
