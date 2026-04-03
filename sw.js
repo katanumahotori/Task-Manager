@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tasks-v5';
+const CACHE_NAME = 'tasks-v6';
 const SHELL_URLS = [
   './',
   './index.html',
@@ -26,6 +26,18 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   // Never cache pCloud API calls
   if (url.hostname.includes('pcloud.com')) return;
+  // HTML files: network first, cache fallback (always get latest)
+  if (event.request.mode === 'navigate' || url.pathname.endsWith('.html')) {
+    event.respondWith(
+      fetch(event.request).then(res => {
+        const clone = res.clone();
+        caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+        return res;
+      }).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+  // Other assets: cache first
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request))
   );
