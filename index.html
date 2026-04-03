@@ -477,31 +477,11 @@ async function pcloudStat() {
 }
 
 async function pcloudDownload() {
-  // Get file metadata to find fileid
-  const meta = await pcloudStat();
-  if (meta.size === 0) return null;
-
-  // Create temporary public link
-  const pubData = await pcloudCall('getfilepublink', { fileid: meta.fileid });
-  const code = pubData.code;
-  const linkid = pubData.linkid;
-
-  try {
-    // Get download URL from public link (no auth needed)
-    const dlRes = await fetch(`${config.apiBase}/getpublinkdownload?code=${code}`, { referrerPolicy: 'no-referrer' });
-    const dlData = await dlRes.json();
-    if (dlData.result !== 0) throw new Error(dlData.error || 'getpublinkdownload failed');
-
-    const host = dlData.hosts[0];
-    const dlPath = dlData.path;
-    const url = `https://${host}${dlPath}`;
-    const res = await fetch(url, { referrerPolicy: 'no-referrer' });
-    if (!res.ok) throw new Error('Download failed: ' + res.status);
-    return await res.arrayBuffer();
-  } finally {
-    // Always delete the temporary public link
-    try { await pcloudCall('deletepublink', { linkid }); } catch (_) {}
-  }
+  const data = await pcloudCall('getfilelink', { path: config.dbPath });
+  const url = `https://${data.hosts[0]}${data.path}`;
+  const res = await fetch(url, { referrerPolicy: 'no-referrer' });
+  if (!res.ok) throw new Error('Download failed: ' + res.status);
+  return await res.arrayBuffer();
 }
 
 async function pcloudUpload(data) {
