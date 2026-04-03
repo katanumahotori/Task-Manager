@@ -436,7 +436,7 @@ async function pcloudCall(method, params = {}) {
   const url = new URL(`${config.apiBase}/${method}`);
   url.searchParams.set('auth', config.token);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url.toString());
+  const res = await fetch(url.toString(), { referrerPolicy: 'no-referrer' });
   const data = await res.json();
   if (data.result !== 0) throw new Error(data.error || `pCloud error ${data.result}`);
   return data;
@@ -450,7 +450,7 @@ async function sha1hex(str) {
 
 async function pcloudLogin(email, password, apiBase) {
   // Step 1: get digest challenge
-  const dRes = await fetch(`${apiBase}/getdigest`);
+  const dRes = await fetch(`${apiBase}/getdigest`, { referrerPolicy: 'no-referrer' });
   const dData = await dRes.json();
   if (dData.result !== 0) throw new Error('Failed to get digest');
   const digest = dData.digest;
@@ -464,7 +464,7 @@ async function pcloudLogin(email, password, apiBase) {
     getauth: '1', username: email, digest: digest, passworddigest: passwordDigest,
     authexpire: '63072000', authinactiveexpire: '5356800',
   });
-  const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body: params });
+  const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body: params, referrerPolicy: 'no-referrer' });
   const data = await res.json();
   if (data.result !== 0) throw new Error(data.error || 'Login failed');
   return data.auth;
@@ -488,7 +488,7 @@ async function pcloudDownloadViaFileRead() {
     readUrl.searchParams.set('auth', config.token);
     readUrl.searchParams.set('fd', fd);
     readUrl.searchParams.set('count', size);
-    const readRes = await fetch(readUrl.toString());
+    const readRes = await fetch(readUrl.toString(), { referrerPolicy: 'no-referrer' });
     const ct = readRes.headers.get('content-type') || '';
     if (ct.includes('application/json')) {
       const err = await readRes.json();
@@ -529,7 +529,7 @@ async function pcloudUpload(data) {
   formData.append('file', blob, filename);
 
   const url = `${config.apiBase}/uploadfile?path=${encodeURIComponent(folder)}&nopartial=1&auth=${config.token}`;
-  const res = await fetch(url, { method: 'POST', body: formData });
+  const res = await fetch(url, { method: 'POST', body: formData, referrerPolicy: 'no-referrer' });
   const result = await res.json();
   if (result.result !== 0) throw new Error(result.error || 'Upload failed');
   return result;
