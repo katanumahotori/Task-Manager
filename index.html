@@ -275,10 +275,6 @@
       <option value="EU">ヨーロッパ (eapi.pcloud.com)</option>
       <option value="US">アメリカ (api.pcloud.com)</option>
     </select>
-    <div id="tfaGroup" style="display:none">
-      <label>認証コード（2段階認証）</label>
-      <input type="text" id="loginTfa" inputmode="numeric" autocomplete="one-time-code" placeholder="6桁のコード">
-    </div>
     <button class="login-btn" id="loginBtn">ログイン</button>
     <div class="login-error" id="loginError"></div>
   </div>
@@ -446,19 +442,31 @@ async function pcloudCall(method, params = {}) {
   return data;
 }
 
-async function pcloudLogin(email, password, apiBase, tfaCode) {
-  const params = {
-    getauth: '1', username: email, password: password,
+async function sha1hex(str) {
+  const buf = new TextEncoder().encode(str);
+  const hash = await crypto.subtle.digest('SHA-1', buf);
+  return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function pcloudLogin(email, password, apiBase) {
+  // Step 1: get digest challenge
+  const dRes = await fetch(`${apiBase}/getdigest`);
+  const dData = await dRes.json();
+  if (dData.result !== 0) throw new Error('Failed to get digest');
+  const digest = dData.digest;
+
+  // Step 2: calculate password digest = SHA1(password + SHA1(username.lower()) + digest)
+  const userHash = await sha1hex(email.toLowerCase());
+  const passwordDigest = await sha1hex(password + userHash + digest);
+
+  // Step 3: login with digest auth
+  const params = new URLSearchParams({
+    getauth: '1', username: email, digest: digest, passworddigest: passwordDigest,
     authexpire: '63072000', authinactiveexpire: '5356800',
-  };
-  if (tfaCode) params.code = tfaCode;
-  const body = new URLSearchParams(params);
-  const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body });
+  });
+  const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body: params });
   const data = await res.json();
-  if (data.result !== 0 && (data.error || '').toLowerCase().includes('provide code')) {
-    throw new Error('TFA_REQUIRED');
-  }
-  if (data.result !== 0) throw new Error(`[${data.result}] ${data.error || 'Login failed'} ${JSON.stringify(data)}`);
+  if (data.result !== 0) throw new Error(data.error || 'Login failed');
   return data.auth;
 }
 
@@ -1081,7 +1089,6 @@ $('#loginBtn').addEventListener('click', async () => {
   const password = $('#loginPassword').value;
   const dbPath = $('#loginDbPath').value.trim();
   const region = $('#loginRegion').value;
-  const tfaCode = $('#loginTfa').value.trim();
 
   if (!email || !password || !dbPath) {
     showLoginError('すべての項目を入力してください');
@@ -1096,7 +1103,7 @@ $('#loginBtn').addEventListener('click', async () => {
   const apiBase = PCLOUD[region];
 
   try {
-    const token = await pcloudLogin(email, password, apiBase, tfaCode || undefined);
+    const token = await pcloudLogin(email, password, apiBase);
     config = { token, apiBase, dbPath };
     localStorage.setItem('taskManagerConfig', JSON.stringify(config));
 
@@ -1109,14 +1116,6 @@ $('#loginBtn').addEventListener('click', async () => {
 
     showApp();
   } catch (e) {
-    if (e.message === 'TFA_REQUIRED') {
-      $('#tfaGroup').style.display = 'block';
-      $('#loginTfa').focus();
-      showLoginError('認証コードを入力してください（認証アプリで確認）');
-      btn.disabled = false;
-      btn.textContent = 'ログイン';
-      return;
-    }
     showLoginError(e.message || 'ログインに失敗しました');
   } finally {
     btn.disabled = false;
