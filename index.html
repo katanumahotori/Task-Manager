@@ -512,12 +512,14 @@ async function pcloudDownloadViaGetFileLink() {
 }
 
 async function pcloudDownload() {
+  let err1, err2;
   try {
     return await pcloudDownloadViaFileRead();
-  } catch (e) {
-    console.warn('file_read failed, trying getfilelink fallback:', e);
+  } catch (e) { err1 = e; }
+  try {
     return await pcloudDownloadViaGetFileLink();
-  }
+  } catch (e) { err2 = e; }
+  throw new Error(`方法1: ${err1.message} ／ 方法2: ${err2.message}`);
 }
 
 async function pcloudUpload(data) {
