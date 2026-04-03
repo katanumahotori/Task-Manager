@@ -21,10 +21,15 @@
 <script>
 (async () => {
   try {
+    // SW登録 → ページの制御を待つ（PWAインストール条件）
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.register('sw.js');
+      if (!navigator.serviceWorker.controller) {
+        await new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
+      }
     }
 
+    // pCloudからアプリ本体を取得してiframeで表示
     const code = 'XZIXk65ZQvsNc00vubRyduVpSrzzk5QVO6ny';
     const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=' + code);
     const data = await res.json();
