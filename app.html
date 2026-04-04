@@ -437,7 +437,7 @@ async function pcloudCall(method, params = {}) {
   const url = new URL(`${config.apiBase}/${method}`);
   url.searchParams.set('auth', config.token);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url.toString(), { referrerPolicy: 'no-referrer' });
+  const res = await fetch(url.toString(), { referrerPolicy: 'no-referrer', cache: 'no-store' });
   const data = await res.json();
   if (data.result !== 0) throw new Error(data.error || `pCloud error ${data.result}`);
   return data;
@@ -478,7 +478,7 @@ async function pcloudStat() {
 
 async function pcloudDownload() {
   const url = `${config.apiBase}/gettextfile?auth=${config.token}&path=${encodeURIComponent(config.dbPath)}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { referrerPolicy: 'no-referrer', cache: 'no-store' });
   if (!res.ok) throw new Error('Download failed: ' + res.status);
   return await res.arrayBuffer();
 }
@@ -1165,7 +1165,7 @@ function showApp() {
 const GITHUB_PAGES = 'https://katanumahotori.github.io/Task-Manager/';
 
 function goToLogin() {
-  window.location.href = GITHUB_PAGES + '?relogin=1';
+  window.top.location.href = GITHUB_PAGES + '?relogin=1';
 }
 
 async function init() {

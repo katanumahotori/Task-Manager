@@ -11,6 +11,7 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
   #status{color:var(--text-sub)}
+  #appFrame{position:fixed;top:0;left:0;width:100%;height:100%;border:none;display:none;z-index:100}
   .login-card{background:var(--bg-raised);border:1px solid var(--border);border-radius:14px;padding:28px;width:100%;max-width:380px;box-shadow:0 4px 20px rgba(0,0,0,.25);display:none}
   .login-card h1{font-size:1.3rem;margin-bottom:4px}
   .login-card .sub{font-size:0.8rem;color:var(--text-muted);margin-bottom:20px}
@@ -26,6 +27,7 @@
 </head>
 <body>
 <p id="status">読み込み中...</p>
+<iframe id="appFrame"></iframe>
 <div class="login-card" id="loginCard">
   <h1>Task Manager</h1>
   <p class="sub">pCloudアカウントでログインしてデータを同期</p>
@@ -71,17 +73,20 @@ async function doLogin(email, password, apiBase) {
   return data.auth;
 }
 
-async function redirectToApp(config) {
+async function loadApp(config) {
   document.getElementById('status').textContent = 'アプリを読み込み中...';
   document.getElementById('status').style.display = '';
   document.getElementById('loginCard').style.display = 'none';
-  document.getElementById('status').style.display = '';
 
-  const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=' + PUB_CODE, { referrerPolicy: 'no-referrer' });
+  const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=' + PUB_CODE, { referrerPolicy: 'no-referrer', cache: 'no-store' });
   const data = await res.json();
   if (data.result !== 0) throw new Error(data.error);
   const url = 'https://' + data.hosts[0] + data.path;
-  window.location.replace(url + '#' + btoa(JSON.stringify(config)));
+
+  const frame = document.getElementById('appFrame');
+  frame.src = url + '#' + btoa(JSON.stringify(config));
+  frame.style.display = 'block';
+  document.getElementById('status').style.display = 'none';
 }
 
 (async () => {
@@ -105,7 +110,7 @@ async function redirectToApp(config) {
   const saved = localStorage.getItem('taskManagerConfig');
   if (saved) {
     try {
-      await redirectToApp(JSON.parse(saved));
+      await loadApp(JSON.parse(saved));
       return;
     } catch (e) {
       localStorage.removeItem('taskManagerConfig');
@@ -139,7 +144,7 @@ async function redirectToApp(config) {
       const token = await doLogin(email, password, apiBase);
       const config = { token, apiBase, dbPath };
       localStorage.setItem('taskManagerConfig', JSON.stringify(config));
-      await redirectToApp(config);
+      await loadApp(config);
     } catch (e) {
       errEl.textContent = e.message || 'ログインに失敗しました';
       errEl.style.display = 'block';
