@@ -1165,7 +1165,13 @@ function showApp() {
 const GITHUB_PAGES = 'https://katanumahotori.github.io/Task-Manager/';
 
 function goToLogin() {
-  window.top.location.href = GITHUB_PAGES + '?relogin=1';
+  // iframe内の場合: postMessageで親ページにログイン画面遷移を依頼
+  // （クロスオリジンiframeからのwindow.top操作はユーザー操作なしだとブロックされるため）
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'goToLogin' }, '*');
+  }
+  // フォールバック: 直接遷移を試みる（iframe外の場合 or postMessage未対応の場合）
+  setTimeout(() => { window.location.href = GITHUB_PAGES + '?relogin=1'; }, 300);
 }
 
 async function init() {
