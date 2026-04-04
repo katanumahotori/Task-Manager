@@ -3,62 +3,36 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#111118">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%235865f2'/><path d='M28 52l14 14 30-32' stroke='white' stroke-width='8' fill='none' stroke-linecap='round' stroke-linejoin='round'/></svg>">
 <title>Tasks</title>
 <style>
-  *{margin:0;padding:0}
-  html,body{height:100%;overflow:hidden;background:#111118}
-  iframe{width:100%;height:100%;border:none}
-  #loading{display:flex;align-items:center;justify-content:center;height:100%;color:#a0a0c0;font-family:sans-serif;flex-direction:column;gap:12px}
+  body{font-family:sans-serif;background:#111118;color:#a0a0c0;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
 </style>
 </head>
 <body>
-<div id="loading">読み込み中...</div>
+<p id="s">読み込み中...</p>
 <script>
-const CODE = 'XZnKX65ZkqtBn3zqgdY0HPwExoHfSzU72GLX';
-let iframe;
-
-async function loadApp() {
-  document.getElementById('loading').textContent = '読み込み中...';
-  document.getElementById('loading').style.display = 'flex';
-  if (iframe) { iframe.remove(); iframe = null; }
-
-  const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=' + CODE);
-  const data = await res.json();
-  if (data.result !== 0) throw new Error(data.error);
-  const url = 'https://' + data.hosts[0] + data.path;
-
-  iframe = document.createElement('iframe');
-  iframe.src = url;
-  iframe.allow = 'web-share';
-  iframe.onload = () => { document.getElementById('loading').style.display = 'none'; };
-  document.body.appendChild(iframe);
-}
-
 (async () => {
+  const s = document.getElementById('s');
   try {
+    // 古いSWとキャッシュを削除
     if ('serviceWorker' in navigator) {
-      await navigator.serviceWorker.register('sw.js');
-      if (!navigator.serviceWorker.controller) {
-        await new Promise(r => navigator.serviceWorker.addEventListener('controllerchange', r, { once: true }));
-      }
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const r of regs) await r.unregister();
     }
-    await loadApp();
+    if ('caches' in window) {
+      const keys = await caches.keys();
+      for (const k of keys) await caches.delete(k);
+    }
+
+    const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=XZnKX65ZkqtBn3zqgdY0HPwExoHfSzU72GLX');
+    const data = await res.json();
+    if (data.result !== 0) throw new Error(data.error);
+    window.location.replace('https://' + data.hosts[0] + data.path);
   } catch (e) {
-    document.getElementById('loading').textContent = 'エラー: ' + e.message;
+    s.textContent = 'エラー: ' + e.message;
   }
 })();
-
-// スマホがスリープから復帰したときにCDN URLを更新
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState === 'visible') {
-    try { await loadApp(); } catch (_) {}
-  }
-});
 </script>
 </body>
 </html>
