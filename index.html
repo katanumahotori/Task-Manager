@@ -25,7 +25,7 @@
       for (const k of keys) await caches.delete(k);
     }
 
-    const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=XZnKX65ZkqtBn3zqgdY0HPwExoHfSzU72GLX');
+    const res = await fetch('https://api.pcloud.com/getpublinkdownload?code=XZnKX65ZkqtBn3zqgdY0HPwExoHfSzU72GLX', { referrerPolicy: 'no-referrer' });
     const data = await res.json();
     if (data.result !== 0) throw new Error(data.error);
     window.location.replace('https://' + data.hosts[0] + data.path);
