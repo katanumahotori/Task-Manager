@@ -1048,44 +1048,8 @@ function openEdit(id) {
 // Event Listeners
 // ══════════════════════════════════════════════════════════════════════════════
 
-$('#loginBtn').addEventListener('click', async () => {
-  const email = $('#loginEmail').value.trim();
-  const password = $('#loginPassword').value;
-  const dbPath = $('#loginDbPath').value.trim();
-  const region = $('#loginRegion').value;
-
-  if (!email || !password || !dbPath) {
-    showLoginError('すべての項目を入力してください');
-    return;
-  }
-
-  const btn = $('#loginBtn');
-  btn.disabled = true;
-  btn.textContent = 'ログイン中...';
-  hideLoginError();
-
-  const apiBase = PCLOUD[region];
-
-  try {
-    const token = await pcloudLogin(email, password, apiBase);
-    config = { token, apiBase, dbPath };
-    localStorage.setItem('taskManagerConfig', JSON.stringify(config));
-
-    setSyncStatus('busy', 'データベース読み込み中...');
-    const buffer = await pcloudDownload();
-    initDb(buffer);
-    const meta = await pcloudStat();
-    lastKnownHash = meta.hash;
-    await idbSave(buffer, lastKnownHash);
-
-    showApp();
-  } catch (e) {
-    showLoginError(e.message || 'ログインに失敗しました');
-  } finally {
-    btn.disabled = false;
-    btn.textContent = 'ログイン';
-  }
-});
+// ログインはGitHub Pages側で行うのでリダイレクト
+$('#loginBtn').addEventListener('click', () => goToLogin());
 
 function showLoginError(msg) { const el = $('#loginError'); el.textContent = msg; el.style.display = 'block'; }
 function hideLoginError() { $('#loginError').style.display = 'none'; }
@@ -1170,10 +1134,7 @@ function logout() {
   if (!confirm('ログアウトしますか？')) return;
   localStorage.removeItem('taskManagerConfig');
   if (syncTimer) clearInterval(syncTimer);
-  config = { token: null, apiBase: '', dbPath: '' };
-  db = null;
-  $('#appScreen').style.display = 'none';
-  $('#loginScreen').style.display = 'flex';
+  goToLogin();
 }
 
 // Online/offline handlers
@@ -1201,12 +1162,13 @@ function showApp() {
   startSync();
 }
 
-async function init() {
-  // Register service worker
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  }
+const GITHUB_PAGES = 'https://katanumahotori.github.io/Task-Manager/';
 
+function goToLogin() {
+  window.location.href = GITHUB_PAGES + '?relogin=1';
+}
+
+async function init() {
   try {
     SQL = await initSqlJs({
       locateFile: file => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/${file}`
@@ -1216,13 +1178,17 @@ async function init() {
     return;
   }
 
-  const saved = localStorage.getItem('taskManagerConfig');
-  if (!saved) {
-    $('#loginScreen').style.display = 'flex';
-    return;
+  // 認証情報: URLハッシュ → localStorage の順で取得
+  let configStr = null;
+  if (location.hash.length > 1) {
+    try { configStr = atob(location.hash.substring(1)); } catch (_) {}
+    if (configStr) localStorage.setItem('taskManagerConfig', configStr);
+    history.replaceState(null, '', location.pathname);
   }
+  if (!configStr) configStr = localStorage.getItem('taskManagerConfig');
+  if (!configStr) { goToLogin(); return; }
 
-  config = JSON.parse(saved);
+  config = JSON.parse(configStr);
 
   // Step 1: Try to load cached DB from IndexedDB for instant display
   const cached = await idbLoad();
@@ -1253,9 +1219,9 @@ async function init() {
   } catch (e) {
     console.error('pCloud sync failed:', e);
     if (!cached.data) {
-      // No cache and no network - clear config and show login
-      localStorage.removeItem('taskManagerConfig');
-      $('#loginScreen').style.display = 'flex';
+      // No cache and no network - redirect to GitHub Pages login
+      goToLogin();
+      return;
     } else {
       setSyncStatus('err', '接続エラー (キャッシュ表示中)');
     }
