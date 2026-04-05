@@ -18,6 +18,8 @@
     --text-primary:#f0f0f8;--text-secondary:#a0a0c0;--text-muted:#8888a0;
     --project-bar:#3a3a58;
     --p-high:#f04747;--p-med:#faa61a;--p-low:#43b581;
+    --bg-p-high:rgba(240,71,71,.15);--bg-p-med:rgba(250,166,26,.12);--bg-p-low:rgba(67,181,129,.12);
+    --bg-p-high-h:rgba(240,71,71,.22);--bg-p-med-h:rgba(250,166,26,.18);--bg-p-low-h:rgba(67,181,129,.18);
     --badge-high-bg:rgba(240,71,71,.18);--badge-high-fg:#f47c7c;
     --badge-med-bg:rgba(250,166,26,.15);--badge-med-fg:#fbbf24;
     --badge-low-bg:rgba(67,181,129,.15);--badge-low-fg:#6ee7b7;
@@ -32,6 +34,8 @@
       --bg:#f0f2f8;--bg-raised:#fff;--bg-input:#f5f6fc;--bg-hover:#eaeaf6;
       --border:#d0d2e8;--text-primary:#1a1a2e;--text-secondary:#4a4a6a;--text-muted:#7070a0;
       --project-bar:#c8cbea;
+      --bg-p-high:#fce8e8;--bg-p-med:#fef6e0;--bg-p-low:#e6f7ed;
+      --bg-p-high-h:#f8d4d4;--bg-p-med-h:#fdedc4;--bg-p-low-h:#d0f0db;
       --badge-high-bg:rgba(220,38,38,.1);--badge-high-fg:#dc2626;
       --badge-med-bg:rgba(217,119,6,.1);--badge-med-fg:#b45309;
       --badge-low-bg:rgba(22,163,74,.1);--badge-low-fg:#16a34a;
@@ -151,9 +155,12 @@
     min-height:44px;
   }
   .task:hover{background:var(--bg-hover)}
-  .task.priority-high{border-left-color:var(--p-high);border-top-color:rgba(240,71,71,.35);border-right-color:rgba(240,71,71,.35);border-bottom-color:rgba(240,71,71,.35)}
-  .task.priority-medium{border-left-color:var(--p-med);border-top-color:rgba(250,166,26,.3);border-right-color:rgba(250,166,26,.3);border-bottom-color:rgba(250,166,26,.3)}
-  .task.priority-low{border-left-color:var(--p-low);border-top-color:rgba(67,181,129,.3);border-right-color:rgba(67,181,129,.3);border-bottom-color:rgba(67,181,129,.3)}
+  .task.priority-high{background:var(--bg-p-high);border-left-color:var(--p-high);border-color:transparent;border-left-color:var(--p-high)}
+  .task.priority-high:hover{background:var(--bg-p-high-h)}
+  .task.priority-medium{background:var(--bg-p-med);border-color:transparent;border-left-color:var(--p-med)}
+  .task.priority-medium:hover{background:var(--bg-p-med-h)}
+  .task.priority-low{background:var(--bg-p-low);border-color:transparent;border-left-color:var(--p-low)}
+  .task.priority-low:hover{background:var(--bg-p-low-h)}
   .task.completed{opacity:.6}
   .task.completed .task-title{text-decoration:line-through;color:var(--text-muted)}
   .task.overdue{background:var(--bg-overdue)}
@@ -191,7 +198,10 @@
 
   /* ── Subtasks ── */
   .subtasks{margin-left:20px;padding-left:10px;border-left:2px solid var(--border);margin-bottom:2px}
-  .subtasks .task{background:var(--bg);border-color:var(--border)}
+  .subtasks .task{border-color:var(--border)}
+  .subtasks .task.priority-high{background:var(--bg-p-high);border-color:transparent;border-left-color:var(--p-high)}
+  .subtasks .task.priority-medium{background:var(--bg-p-med);border-color:transparent;border-left-color:var(--p-med)}
+  .subtasks .task.priority-low{background:var(--bg-p-low);border-color:transparent;border-left-color:var(--p-low)}
   .subtask-add{display:flex;gap:6px;margin:4px 0 6px 20px;padding-left:10px;border-left:2px solid var(--border)}
   .subtask-add input{
     flex:1;padding:8px 10px;background:var(--bg-input);border:1px solid var(--border);
@@ -959,7 +969,7 @@ function renderTask(t, isSub) {
     else if (isToday) meta += `<span class="badge badge-today">今日 ${t.due_date}</span>`;
     else meta += `<span class="date-text">${t.due_date}</span>`;
   }
-  meta += `<span class="badge badge-${t.priority}">${t.priority}</span>`;
+  // 優先度はカード背景色で表現（バッジ不要）
   if (!isSub && subTotal > 0) {
     meta += `<span class="subtask-count" onclick="toggleSubtasks(${t.id})">${expanded ? '▼' : '▶'} ${subCompleted}/${subTotal}</span>`;
   }
@@ -1225,9 +1235,11 @@ async function init() {
   } catch (e) {
     console.error('pCloud sync failed:', e);
     if (!cached.data) {
-      // No cache and no network - redirect to GitHub Pages login
-      goToLogin();
-      return;
+      // キャッシュなし＋APIエラーでも、トークンは有効な可能性が高い（ログイン直後）
+      // ログイン画面には戻さず、空のDBでアプリを表示し、同期の自動再試行を待つ
+      initDb(null);
+      showApp();
+      setSyncStatus('err', '接続エラー - 再読み込みしてください');
     } else {
       setSyncStatus('err', '接続エラー (キャッシュ表示中)');
     }

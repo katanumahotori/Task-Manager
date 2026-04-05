@@ -88,11 +88,22 @@ async function loadApp(config) {
   frame.src = url + '#' + btoa(JSON.stringify(config));
   frame.style.display = 'block';
   document.getElementById('status').style.display = 'none';
+  appLoadTime = Date.now();
 }
 
 // iframeからのログイン要求を受信（クロスオリジンでも確実に動作）
+let appLoadTime = 0;
 window.addEventListener('message', (e) => {
   if (e.data && e.data.type === 'goToLogin') {
+    // ログイン直後（15秒以内）はリトライする（一時的なエラーの可能性が高い）
+    if (appLoadTime > 0 && Date.now() - appLoadTime < 15000) {
+      appLoadTime = 0; // 無限リトライ防止
+      const saved = localStorage.getItem('taskManagerConfig');
+      if (saved) {
+        loadApp(JSON.parse(saved)).catch(() => {});
+        return;
+      }
+    }
     localStorage.removeItem('taskManagerConfig');
     location.href = location.pathname;
   }
