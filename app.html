@@ -487,16 +487,18 @@ async function pcloudStat() {
 }
 
 async function pcloudDownload() {
-  const url = `${config.apiBase}/gettextfile?auth=${config.token}&path=${encodeURIComponent(config.dbPath)}`;
-  // gettextfileはRefererヘッダーでpCloudドメインからの要求か判定するため、originを送る
-  const res = await fetch(url, { referrerPolicy: 'origin', cache: 'no-store' });
-  if (!res.ok) throw new Error('Download failed: ' + res.status);
-  // gettextfileはエラー時もHTTP 200でJSONを返すため、Content-Typeで判定
-  const ct = res.headers.get('content-type') || '';
-  if (ct.includes('application/json')) {
-    const data = await res.json();
-    throw new Error(data.error || `pCloud error ${data.result}`);
-  }
+  // getfilelinkでCDNダウンロードURLを取得（gettextfileはバイナリを壊すため使わない）
+  const linkUrl = new URL(`${config.apiBase}/getfilelink`);
+  linkUrl.searchParams.set('auth', config.token);
+  linkUrl.searchParams.set('path', config.dbPath);
+  const linkRes = await fetch(linkUrl.toString(), { referrerPolicy: 'origin', cache: 'no-store' });
+  const linkData = await linkRes.json();
+  if (linkData.result !== 0) throw new Error(linkData.error || `getfilelink error ${linkData.result}`);
+
+  // CDNからバイナリデータをダウンロード
+  const cdnUrl = 'https://' + linkData.hosts[0] + linkData.path;
+  const res = await fetch(cdnUrl, { referrerPolicy: 'origin', cache: 'no-store' });
+  if (!res.ok) throw new Error('CDN download failed: ' + res.status);
   return await res.arrayBuffer();
 }
 
