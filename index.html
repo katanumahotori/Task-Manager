@@ -91,13 +91,20 @@ async function loadApp(config) {
   appLoadTime = Date.now();
 }
 
-// iframeからのログイン要求を受信（クロスオリジンでも確実に動作）
+// iframeからのメッセージを受信
 let appLoadTime = 0;
 window.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'goToLogin') {
-    // ログイン直後（15秒以内）はリトライする（一時的なエラーの可能性が高い）
+  if (!e.data) return;
+  // ログアウト（ユーザー操作）は即座に処理
+  if (e.data.type === 'logout') {
+    localStorage.removeItem('taskManagerConfig');
+    location.href = location.pathname;
+    return;
+  }
+  // goToLogin（システムエラー）はログイン直後ならリトライ
+  if (e.data.type === 'goToLogin') {
     if (appLoadTime > 0 && Date.now() - appLoadTime < 15000) {
-      appLoadTime = 0; // 無限リトライ防止
+      appLoadTime = 0;
       const saved = localStorage.getItem('taskManagerConfig');
       if (saved) {
         loadApp(JSON.parse(saved)).catch(() => {});

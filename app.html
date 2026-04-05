@@ -488,8 +488,15 @@ async function pcloudStat() {
 
 async function pcloudDownload() {
   const url = `${config.apiBase}/gettextfile?auth=${config.token}&path=${encodeURIComponent(config.dbPath)}`;
-  const res = await fetch(url, { referrerPolicy: 'no-referrer', cache: 'no-store' });
+  // gettextfileはRefererヘッダーでpCloudドメインからの要求か判定するため、originを送る
+  const res = await fetch(url, { referrerPolicy: 'origin', cache: 'no-store' });
   if (!res.ok) throw new Error('Download failed: ' + res.status);
+  // gettextfileはエラー時もHTTP 200でJSONを返すため、Content-Typeで判定
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) {
+    const data = await res.json();
+    throw new Error(data.error || `pCloud error ${data.result}`);
+  }
   return await res.arrayBuffer();
 }
 
@@ -626,7 +633,7 @@ async function pollForChanges() {
     }
   } catch (e) {
     console.error('Poll error:', e);
-    setSyncStatus('err', '接続エラー');
+    setSyncStatus('err', '接続エラー: ' + (e.message || '不明'));
   }
 }
 
@@ -1144,7 +1151,11 @@ function logout() {
   if (!confirm('ログアウトしますか？')) return;
   localStorage.removeItem('taskManagerConfig');
   if (syncTimer) clearInterval(syncTimer);
-  goToLogin();
+  // ログアウトは専用メッセージ（リトライ保護をバイパスする）
+  if (window.parent !== window) {
+    window.parent.postMessage({ type: 'logout' }, '*');
+  }
+  setTimeout(() => { window.location.href = GITHUB_PAGES + '?relogin=1'; }, 300);
 }
 
 // Online/offline handlers
@@ -1235,11 +1246,9 @@ async function init() {
   } catch (e) {
     console.error('pCloud sync failed:', e);
     if (!cached.data) {
-      // キャッシュなし＋APIエラーでも、トークンは有効な可能性が高い（ログイン直後）
-      // ログイン画面には戻さず、空のDBでアプリを表示し、同期の自動再試行を待つ
       initDb(null);
       showApp();
-      setSyncStatus('err', '接続エラー - 再読み込みしてください');
+      setSyncStatus('err', '接続エラー: ' + (e.message || '不明') + ' - 再読み込みしてください');
     } else {
       setSyncStatus('err', '接続エラー (キャッシュ表示中)');
     }
