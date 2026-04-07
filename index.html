@@ -195,6 +195,23 @@ window.addEventListener('message', (e) => {
     }
   });
 })();
+
+// Chrome復元・タブ切替時: iframeが空なら再読み込み
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    const frame = document.getElementById('appFrame');
+    const saved = localStorage.getItem('taskManagerConfig');
+    if (saved && frame && frame.style.display !== 'block') {
+      loadApp(JSON.parse(saved)).catch(() => {});
+    }
+  }
+});
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) {
+    const saved = localStorage.getItem('taskManagerConfig');
+    if (saved) loadApp(JSON.parse(saved)).catch(() => {});
+  }
+});
 </script>
 </body>
 </html>
