@@ -60,7 +60,7 @@ async function sha1hex(str) {
   return [...new Uint8Array(hash)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function doLogin(email, password, apiBase) {
+async function tryLoginOnRegion(email, password, apiBase) {
   const dRes = await fetch(`${apiBase}/getdigest`, { referrerPolicy: 'no-referrer' });
   const dData = await dRes.json();
   if (dData.result !== 0) throw new Error('Failed to get digest');
@@ -72,8 +72,22 @@ async function doLogin(email, password, apiBase) {
   });
   const res = await fetch(`${apiBase}/userinfo`, { method: 'POST', body: params, referrerPolicy: 'no-referrer' });
   const data = await res.json();
-  if (data.result !== 0) throw new Error(data.error || 'Login failed');
-  return data.auth;
+  if (data.result !== 0) throw new Error(data.error || `Login failed (result=${data.result})`);
+  return { token: data.auth, apiBase };
+}
+
+async function doLogin(email, password, apiBase) {
+  // 選択リージョンで試し、失敗したらもう一方のリージョンも試す
+  const other = apiBase.includes('eapi') ? 'https://api.pcloud.com' : 'https://eapi.pcloud.com';
+  try {
+    return await tryLoginOnRegion(email, password, apiBase);
+  } catch (e1) {
+    try {
+      return await tryLoginOnRegion(email, password, other);
+    } catch (e2) {
+      throw e1; // 最初のエラーを返す（ユーザーが選んだリージョンの方がわかりやすいため）
+    }
+  }
 }
 
 async function loadApp(config) {
@@ -182,9 +196,9 @@ window.addEventListener('message', (e) => {
     errEl.style.display = 'none';
 
     try {
-      const apiBase = PCLOUD[region];
-      const token = await doLogin(email, password, apiBase);
-      const config = { token, apiBase, dbPath };
+      const initialApiBase = PCLOUD[region];
+      const result = await doLogin(email, password, initialApiBase);
+      const config = { token: result.token, apiBase: result.apiBase, dbPath };
       localStorage.setItem('taskManagerConfig', JSON.stringify(config));
       await loadApp(config);
     } catch (e) {

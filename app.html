@@ -1227,30 +1227,48 @@ async function init() {
     showApp();
   }
 
-  // Step 2: Check pCloud for updates in the background
-  try {
-    const meta = await pcloudStat();
-    if (meta.hash !== lastKnownHash) {
-      setSyncStatus('busy', '最新データを取得中...');
-      const buffer = await pcloudDownload();
-      if (buffer) {
-        initDb(buffer);
-        lastKnownHash = meta.hash;
-        await idbSave(buffer, lastKnownHash);
-        loadDataAndRender();
+  // Step 2: Check pCloud for updates in the background (retry up to 3 times on transient failure)
+  let lastError = null;
+  let synced = false;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      if (attempt > 0) await new Promise(r => setTimeout(r, 800 * attempt));
+      const meta = await pcloudStat();
+      if (meta.hash !== lastKnownHash) {
+        setSyncStatus('busy', '最新データを取得中...');
+        const buffer = await pcloudDownload();
+        if (buffer) {
+          initDb(buffer);
+          lastKnownHash = meta.hash;
+          await idbSave(buffer, lastKnownHash);
+          loadDataAndRender();
+        }
+        setSyncStatus('ok', '同期済み');
+      } else {
+        setSyncStatus('ok', '同期済み');
       }
-      setSyncStatus('ok', '同期済み');
+      if (!cached.data && db) showApp();
+      synced = true;
+      break;
+    } catch (e) {
+      lastError = e;
+      console.error('pCloud sync failed (attempt ' + (attempt + 1) + '):', e);
     }
-    // If we had no cached data and this is the first load
-    if (!cached.data && db) {
-      showApp();
-    }
-  } catch (e) {
-    console.error('pCloud sync failed:', e);
+  }
+
+  if (!synced) {
+    const e = lastError;
     if (!cached.data) {
       initDb(null);
       showApp();
       setSyncStatus('err', '接続エラー: ' + (e.message || '不明') + ' - 再読み込みしてください');
+      // エラー詳細を目立つように画面中央に表示
+      const errBanner = document.createElement('div');
+      errBanner.id = 'firstSyncError';
+      errBanner.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);max-width:90%;background:var(--badge-over-bg);color:var(--badge-over-fg);padding:12px 16px;border-radius:8px;font-size:0.85rem;z-index:80;box-shadow:0 2px 12px rgba(0,0,0,.3);cursor:pointer';
+      errBanner.textContent = 'データ取得エラー: ' + (e.message || '不明') + '（タップで再試行）';
+      errBanner.onclick = () => { errBanner.remove(); location.reload(); };
+      document.body.appendChild(errBanner);
     } else {
       setSyncStatus('err', '接続エラー (キャッシュ表示中)');
     }
